@@ -334,8 +334,17 @@ body { background: #1a1a2e; display: flex; justify-content: center; align-items:
           <button id="copyLinkBtn" style="width:100%;margin-bottom:12px;padding:14px 48px;background:linear-gradient(135deg,#4ade80,#22c55e);color:#1a1a2e;font-size:18px;font-weight:900;border:none;border-radius:50px;cursor:pointer;font-family:'Fredoka',sans-serif;box-shadow:0 4px 15px rgba(74,222,128,.4);transition:transform .1s;">🔗 학생 공유 링크</button>
           <div id="linkCopied" style="display:none;color:#4ade80;font-size:14px;font-weight:700;margin-bottom:12px;text-align:center;">✅ 링크가 복사되었어요!</div>
           <button class="start-btn" id="playBtn" style="width:100%;margin-top:0;background:linear-gradient(135deg, #FFD700, #f59e0b);">🎮 게임 시작하기</button>
+          <div id="studentIdWrap" style="display:none;margin-top:10px;text-align:left;">
+            <label for="studentIdInput" style="color:#4ade80;font-size:13px;font-weight:700;display:block;margin-bottom:6px;">👤 학생 아이디</label>
+            <input id="studentIdInput" type="text" placeholder="예: 2-3-15 김민수" style="width:100%;border-radius:12px;border:2px solid #4ade80;padding:8px;font-size:14px;background:rgba(255,255,255,.95);color:#1a1a2e;">
+            <p id="studentAttemptInfo" style="color:rgba(255,255,255,.85);font-size:12px;margin-top:6px;">게임 기록을 불러오는 중...</p>
+          </div>
           <div id="studentGuide" style="display:none;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:10px;margin-top:10px;color:#fff;font-size:12px;line-height:1.45;text-align:left;">
             학생용 안내: 문제를 선택해 정답을 맞히면 공격(슛), 오답이면 수비(다이빙)를 진행합니다. 게이지를 두 번 멈춰 X/Y 위치를 정하고 버튼을 눌러 실행하세요.
+          </div>
+          <div id="studentRankingWrap" style="display:none;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:10px;margin-top:10px;color:#fff;text-align:left;">
+            <p style="font-size:13px;font-weight:700;margin:0 0 6px;">🏆 학생 랭킹</p>
+            <div id="studentRankingList" style="font-size:12px;line-height:1.4;max-height:120px;overflow:auto;">기록 없음</div>
           </div>
         </div>
       </div>
@@ -346,7 +355,8 @@ body { background: #1a1a2e; display: flex; justify-content: center; align-items:
 let G = {
   words: [], remaining: [], answeredWords: [], score: 0, lives: 3, phase: 'setup',
   gaugeX: 0, gaugeY: 0, gaugeDir: 1, gaugeRAF: null, currentWord: null, timeLimit: 20,
-  quizTimer: null, bgAudioOsc: null, bgAudioGain: null, isTeacher: true, sharedWords: null, role: 'kicker'
+  quizTimer: null, bgAudioOsc: null, bgAudioGain: null, isTeacher: true, sharedWords: null, role: 'kicker',
+  studentId: ''
 };
 let audioCtx = null;
 let audioUnlocked = false;
@@ -363,7 +373,76 @@ const gameEl=$('game'), setupEl=$('setupScreen'), quizArea=$('quizArea'),
   msgScore=$('msgScore'), msgBtn=$('msgBtn'), answersStack=$('answersStack'),
   copyLinkBtn=$('copyLinkBtn'), linkCopied=$('linkCopied'),
   kickerEl=$('kicker'), teacherSetup=$('teacherSetup'), gameReady=$('gameReady'), playBtn=$('playBtn'),
-  wordCount=$('wordCount'), timeDisplay=$('timeDisplay'), studentGuide=$('studentGuide');
+  wordCount=$('wordCount'), timeDisplay=$('timeDisplay'), studentGuide=$('studentGuide'),
+  studentIdWrap=$('studentIdWrap'), studentIdInput=$('studentIdInput'), studentAttemptInfo=$('studentAttemptInfo'),
+  studentRankingWrap=$('studentRankingWrap'), studentRankingList=$('studentRankingList');
+
+const STUDENT_HISTORY_KEY = 'soccerQuizStudentHistory';
+let studentHistoryScope = 'default';
+function getStudentHistoryKey() {
+  return `${STUDENT_HISTORY_KEY}:${studentHistoryScope}`;
+}
+function loadStudentHistory() {
+  try {
+    const raw = localStorage.getItem(getStudentHistoryKey());
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function saveStudentHistory(data) {
+  localStorage.setItem(getStudentHistoryKey(), JSON.stringify(data));
+  renderStudentRanking();
+}
+function renderStudentRanking() {
+  const history = loadStudentHistory();
+  const rows = Object.entries(history)
+    .map(([id, info]) => ({
+      name: id,
+      count: info.count || 0,
+      score: info.bestScore || info.lastScore || 0
+    }))
+    .filter((x) => x.count > 0)
+    .sort((a, b) => (b.score - a.score) || (b.count - a.count));
+  if (rows.length === 0) {
+    studentRankingList.textContent = '기록 없음';
+    return;
+  }
+  studentRankingList.innerHTML = rows.slice(0, 5).map((r, i) =>
+    `${i + 1}위. ${r.name} | 점수 ${r.score}점 | 횟수 ${r.count}회`
+  ).join('<br>');
+}
+function updateStudentAttemptInfo() {
+  const id = studentIdInput.value.trim();
+  if (!id) {
+    studentAttemptInfo.textContent = '아이디를 입력하면 누적 게임 횟수를 확인할 수 있어요.';
+    return;
+  }
+  const history = loadStudentHistory();
+  const row = history[id];
+  if (!row) {
+    studentAttemptInfo.textContent = `"${id}" 아이디의 첫 게임입니다.`;
+    return;
+  }
+  studentAttemptInfo.textContent = `"${id}" 누적 ${row.count}회 | 최고 ${row.bestScore ?? 0}점 | 최근 ${row.lastScore ?? 0}점`;
+}
+function recordStudentAttempt(finalScore, incrementCount) {
+  const id = (studentIdInput.value || '').trim();
+  if (!id) return;
+  const history = loadStudentHistory();
+  const prev = history[id] || { count: 0, lastScore: 0, bestScore: 0 };
+  const nextCount = prev.count + (incrementCount ? 1 : 0);
+  const nextLastScore = typeof finalScore === 'number' ? finalScore : (prev.lastScore || 0);
+  const nextBestScore = Math.max(prev.bestScore || 0, nextLastScore);
+  history[id] = {
+    count: nextCount,
+    lastScore: nextLastScore,
+    bestScore: nextBestScore,
+    lastPlayedAt: new Date().toISOString()
+  };
+  saveStudentHistory(history);
+  G.studentId = id;
+}
 
 function shuffle(a) { for(let i=a.length-1;i>0;i--){const j=Math.random()*i+1|0;[a[i],a[j]]=[a[j],a[i]];} return a; }
 function parseWords(text) {
@@ -426,7 +505,20 @@ function autoShowReady() {
   updateHUD(); gameReady.style.display = 'block'; wordCount.textContent = words.length; timeDisplay.textContent = G.timeLimit; linkCopied.style.display = 'none';
 }
 
-playBtn.addEventListener('click', () => { setupEl.style.display = 'none'; answersStack.innerHTML = ''; updateHUD(); showQuiz(); });
+playBtn.addEventListener('click', () => {
+  if (!G.isTeacher) {
+    const id = studentIdInput.value.trim();
+    if (!id) {
+      alert('학생 아이디를 입력해주세요.');
+      studentIdInput.focus();
+      return;
+    }
+    G.studentId = id;
+    recordStudentAttempt(0, true);
+    updateStudentAttemptInfo();
+  }
+  setupEl.style.display = 'none'; answersStack.innerHTML = ''; updateHUD(); showQuiz();
+});
 copyLinkBtn.addEventListener('click', async () => {
   if (G.words.length < 4) return;
   const jsonStr = JSON.stringify({ words: G.words, timeLimit: G.timeLimit });
@@ -440,19 +532,30 @@ function detectStudentMode() {
   const params = new URLSearchParams(window.location.search);
   const mode = params.get('mode');
   const encodedData = params.get('data');
+  if (encodedData) {
+    // 링크(문제 세트)별로 기록 키를 분리한다.
+    studentHistoryScope = encodedData.slice(0, 120);
+  }
   if(mode === 'student' && encodedData) {
     try {
       const decoded = JSON.parse(decodeURIComponent(atob(encodedData)));
       if (decoded && decoded.words && decoded.words.length >= 4) {
         G.words = decoded.words; G.remaining = [...decoded.words]; G.score = 0; G.lives = 3; G.timeLimit = decoded.timeLimit || 20; G.isTeacher = false;
         setupEl.style.display = 'flex'; teacherSetup.style.display = 'none'; copyLinkBtn.style.display = 'none'; gameReady.style.display = 'block';
+        studentIdWrap.style.display = 'block';
         studentGuide.style.display = 'block';
+        studentRankingWrap.style.display = 'block';
         wordCount.textContent = G.words.length; timeDisplay.textContent = G.timeLimit; playBtn.textContent = '🎮 게임 시작하기'; updateHUD();
+        updateStudentAttemptInfo();
+        renderStudentRanking();
       }
     } catch { alert('데이터를 불러오지 못했습니다.'); }
   }
 }
 detectStudentMode();
+if (!G.isTeacher) {
+  renderStudentRanking();
+}
 
 function addAnswerCard(word) {
   const card = document.createElement('div');
@@ -639,8 +742,13 @@ msgBtn.addEventListener('click', () => {
   msgOverlay.classList.remove('show');
   answersStack.innerHTML = '';
   if (G.isTeacher) setupEl.style.display = 'flex';
-  else { G.remaining = [...G.words]; G.answeredWords = []; G.score = 0; G.lives = 3; updateHUD(); showQuiz(); }
+  else {
+    recordStudentAttempt(G.score, false);
+    updateStudentAttemptInfo();
+    G.remaining = [...G.words]; G.answeredWords = []; G.score = 0; G.lives = 3; updateHUD(); showQuiz();
+  }
 });
+studentIdInput.addEventListener('input', updateStudentAttemptInfo);
   </script>
 </body>
 </html>
