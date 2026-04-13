@@ -345,6 +345,7 @@ body { background: #1a1a2e; display: flex; justify-content: center; align-items:
           <div id="studentRankingWrap" style="display:none;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:10px;margin-top:10px;color:#fff;text-align:left;">
             <p style="font-size:13px;font-weight:700;margin:0 0 6px;">🏆 학생 랭킹</p>
             <div id="studentRankingList" style="font-size:12px;line-height:1.4;max-height:120px;overflow:auto;">기록 없음</div>
+            <button id="downloadRankingBtn" style="width:100%;margin-top:8px;padding:8px 10px;background:linear-gradient(135deg,#93c5fd,#60a5fa);color:#0f172a;font-size:13px;font-weight:700;border:none;border-radius:10px;cursor:pointer;">⬇️ 게임 결과 엑셀 다운로드</button>
           </div>
         </div>
       </div>
@@ -375,7 +376,8 @@ const gameEl=$('game'), setupEl=$('setupScreen'), quizArea=$('quizArea'),
   kickerEl=$('kicker'), teacherSetup=$('teacherSetup'), gameReady=$('gameReady'), playBtn=$('playBtn'),
   wordCount=$('wordCount'), timeDisplay=$('timeDisplay'), studentGuide=$('studentGuide'),
   studentIdWrap=$('studentIdWrap'), studentIdInput=$('studentIdInput'), studentAttemptInfo=$('studentAttemptInfo'),
-  studentRankingWrap=$('studentRankingWrap'), studentRankingList=$('studentRankingList');
+  studentRankingWrap=$('studentRankingWrap'), studentRankingList=$('studentRankingList'),
+  downloadRankingBtn=$('downloadRankingBtn');
 
 const STUDENT_HISTORY_KEY = 'soccerQuizStudentHistory';
 let studentHistoryScope = 'default';
@@ -411,6 +413,40 @@ function renderStudentRanking() {
   studentRankingList.innerHTML = rows.slice(0, 5).map((r, i) =>
     `${i + 1}위. ${r.name} | 점수 ${r.score}점 | 횟수 ${r.count}회`
   ).join('<br>');
+}
+function downloadRankingCsv() {
+  const history = loadStudentHistory();
+  const rows = Object.entries(history)
+    .map(([id, info]) => ({
+      gameId: id,
+      bestScore: info.bestScore || info.lastScore || 0,
+      count: info.count || 0
+    }))
+    .filter((x) => x.count > 0)
+    .sort((a, b) => (b.bestScore - a.bestScore) || (b.count - a.count));
+
+  if (rows.length === 0) {
+    alert('다운로드할 기록이 없습니다.');
+    return;
+  }
+
+  const header = ['게임아이디', '최고점수', '횟수'];
+  const csvLines = [header.join(',')];
+  rows.forEach((r) => {
+    const safeId = `"${String(r.gameId).replace(/"/g, '""')}"`;
+    csvLines.push([safeId, r.bestScore, r.count].join(','));
+  });
+
+  const csvContent = '\uFEFF' + csvLines.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `학생게임결과_${studentHistoryScope.slice(0, 12)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 function updateStudentAttemptInfo() {
   const id = studentIdInput.value.trim();
@@ -749,6 +785,7 @@ msgBtn.addEventListener('click', () => {
   }
 });
 studentIdInput.addEventListener('input', updateStudentAttemptInfo);
+downloadRankingBtn.addEventListener('click', downloadRankingCsv);
   </script>
 </body>
 </html>
