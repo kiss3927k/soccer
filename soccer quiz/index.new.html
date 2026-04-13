@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="ko" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>축구 단어 퀴즈</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; font-family: 'Noto Sans KR', sans-serif; }
+
+.game-container {
+  width: 100%; max-width: 400px; height: 100%; max-height: calc(400px * 16 / 9);
+  position: relative; overflow: hidden; background: #2d8a4e;
+}
+@media (max-width: 420px) {
+  .game-container { max-height: 100%; border-radius: 0; }
+}
+@media (min-width: 421px) {
+  .game-container { border-radius: 16px; box-shadow: 0 0 40px rgba(0,0,0,.5); }
+}
+
+.grass {
+  background: repeating-linear-gradient(90deg, #2d8a4e 0px, #2d8a4e 20px, #339956 20px, #339956 40px);
+  position: absolute; inset: 0;
+}
+.grass::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(180deg, transparent 0px, transparent 30px, rgba(255,255,255,.04) 30px, rgba(255,255,255,.04) 60px);
+}
+
+.field-lines {
+  position: absolute; inset: 0; pointer-events: none;
+}
+
+.goal-area {
+  position: absolute; top: 2%; left: 50%; transform: translateX(-50%);
+  width: 85%; height: 28%;
+  border: 3px solid rgba(255,255,255,.7); border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+.penalty-box {
+  position: absolute; top: 2%; left: 50%; transform: translateX(-50%);
+  width: 90%; height: 35%;
+  border: 2px solid rgba(255,255,255,.4); border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+.penalty-spot {
+  position: absolute; top: 62%; left: 50%; transform: translate(-50%,-50%);
+  width: 8px; height: 8px; background: rgba(255,255,255,.6); border-radius: 50%;
+}
+.center-circle {
+  position: absolute; bottom: -15%; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 120px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%;
+}
+.halfway-line {
+  position: absolute; bottom: 8%; left: 5%; right: 5%;
+  border-top: 2px solid rgba(255,255,255,.3);
+}
+
+.goalpost {
+  position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
+  width: 65%; height: 18%;
+}
+
+.answers-stack {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: 2%;
+  width: 92%;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+}
+.answer-card {
+  background: rgba(255,255,255,.2); backdrop-filter: blur(4px);
+  border: 2px solid rgba(255,255,255,.5); border-radius: 8px;
+  padding: 8px 16px; color: #fff; font-weight: 700; font-size: 14px;
+  font-family: 'Fredoka', 'Noto Sans KR', sans-serif;
+  box-shadow: 0 4px 8px rgba(0,0,0,.2);
+  animation: cardBounce .4s cubic-bezier(.34,1.56,.64,1) forwards;
+  white-space: nowrap;
+}
+@keyframes cardBounce {
+  0% { opacity: 0; transform: translateY(-20px) scale(.8); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.post-top { position: absolute; top: 0; left: 0; right: 0; height: 6px; background: #fff; border-radius: 3px; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.post-left { position: absolute; top: 0; left: 0; width: 6px; height: 100%; background: #fff; border-radius: 3px; box-shadow: 2px 0 8px rgba(0,0,0,.3); }
+.post-right { position: absolute; top: 0; right: 0; width: 6px; height: 100%; background: #fff; border-radius: 3px; box-shadow: -2px 0 8px rgba(0,0,0,.3); }
+.net {
+  position: absolute; inset: 6px 6px 0 6px;
+  background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,.15) 4px, rgba(255,255,255,.15) 5px),
+              repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,255,255,.15) 4px, rgba(255,255,255,.15) 5px);
+  border-radius: 0 0 4px 4px;
+}
+
+.goalkeeper {
+  position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+  font-size: 48px; transition: all .4s ease; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,.4));
+  line-height: 1;
+}
+
+.kicker {
+  position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%);
+  font-size: 40px; z-index: 10; filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+  line-height: 1; transition: all .15s;
+  border: 3px solid rgba(255,255,255,.3); border-radius: 50%; padding: 8px;
+  width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
+}
+.kicker.kicking {
+  transform: translateX(-50%) scaleX(.8) translateY(-8px);
+}
+
+.ball {
+  position: absolute; bottom: 24%; left: 50%; transform: translateX(-50%);
+  font-size: 28px; z-index: 11; transition: all .5s cubic-bezier(.2,.8,.3,1);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.4));
+  line-height: 1;
+}
+.ball.shooting { transition: all .6s cubic-bezier(.1,.7,.3,1); }
+
+@keyframes shake {
+  0%,100%{ transform: translateX(0); }
+  20%{ transform: translateX(-8px); }
+  40%{ transform: translateX(8px); }
+  60%{ transform: translateX(-4px); }
+  80%{ transform: translateX(4px); }
+}
+.shake { animation: shake .4s ease; }
+
+@keyframes redFlash {
+  0%,100%{ background-color: transparent; }
+  50%{ background-color: rgba(255,0,0,.2); }
+}
+.red-flash { animation: redFlash .4s ease; }
+
+@keyframes goalPop {
+  0%{ transform: translate(-50%,-50%) scale(0); opacity: 0; }
+  50%{ transform: translate(-50%,-50%) scale(1.3); opacity: 1; }
+  70%{ transform: translate(-50%,-50%) scale(.95); }
+  100%{ transform: translate(-50%,-50%) scale(1); opacity: 1; }
+}
+.goal-text {
+  position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%) scale(0);
+  font-family: 'Fredoka', sans-serif; font-size: 64px; font-weight: 700;
+  color: #FFD700; text-shadow: 0 0 20px rgba(255,215,0,.6), 0 4px 8px rgba(0,0,0,.4), 2px 2px 0 #e6a800;
+  z-index: 50; pointer-events: none; opacity: 0;
+}
+.goal-text.show { animation: goalPop .6s ease forwards; }
+
+.gauge-track {
+  position: absolute; background: rgba(0,0,0,.4); border-radius: 6px; overflow: hidden;
+}
+.gauge-fill {
+  position: absolute; background: #FFD700; border-radius: 6px;
+  box-shadow: 0 0 8px rgba(255,215,0,.5);
+}
+#gaugeX { bottom: 16%; left: 15%; right: 15%; height: 8px; }
+#gaugeY { right: 10%; bottom: 22%; height: 80px; width: 8px; }
+
+.crosshair-h, .crosshair-v {
+  position: absolute; background: rgba(255,50,50,.6); z-index: 15; pointer-events: none;
+}
+.crosshair-h { height: 2px; left: 0; right: 0; }
+.crosshair-v { width: 2px; top: 0; bottom: 0; }
+
+.quiz-btn {
+  background: rgba(255,255,255,.95); border: 2px solid #ddd; border-radius: 12px;
+  padding: 10px 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: all .15s; font-family: 'Noto Sans KR', sans-serif;
+  color: #1a1a2e; text-align: center; line-height: 1.3;
+}
+.quiz-btn:active { transform: scale(.96); background: #e0f0e8; border-color: #2d8a4e; }
+
+.shoot-btn {
+  position: absolute; z-index: 20; padding: 14px 36px;
+  background: linear-gradient(135deg, #ff6b35, #e63946); color: #fff;
+  font-size: 22px; font-weight: 900; border: none; border-radius: 50px;
+  cursor: pointer; font-family: 'Fredoka', sans-serif;
+  box-shadow: 0 4px 15px rgba(230,57,70,.5); letter-spacing: 2px;
+  transition: transform .1s;
+}
+.shoot-btn:active { transform: scale(.93); }
+
+.msg-overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 60;
+  background: rgba(0,0,0,.6); opacity: 0; pointer-events: none;
+  transition: opacity .3s;
+}
+.msg-overlay.show { opacity: 1; pointer-events: auto; }
+.msg-box {
+  background: #fff; border-radius: 20px; padding: 28px 24px;
+  text-align: center; max-width: 85%; box-shadow: 0 8px 30px rgba(0,0,0,.3);
+}
+.msg-box #msgText,
+.msg-box #msgScore,
+#wordDisp,
+#timerDisplay,
+#linkCopied {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.setup-screen {
+  position: absolute; inset: 0; z-index: 70;
+  background: linear-gradient(160deg, #1a472a 0%, #2d8a4e 50%, #1a472a 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.setup-screen textarea {
+  width: 100%; height: 120px; border-radius: 12px; border: 2px solid #4ade80;
+  padding: 12px; font-size: 14px; font-family: 'Noto Sans KR', sans-serif;
+  resize: none; background: rgba(255,255,255,.95); color: #1a1a2e;
+}
+.setup-screen textarea:focus { outline: none; border-color: #FFD700; box-shadow: 0 0 12px rgba(255,215,0,.3); }
+.start-btn {
+  margin-top: 16px; padding: 14px 48px; background: linear-gradient(135deg, #FFD700, #f59e0b);
+  color: #1a1a2e; font-size: 20px; font-weight: 900; border: none; border-radius: 50px;
+  cursor: pointer; font-family: 'Fredoka', sans-serif;
+  box-shadow: 0 4px 15px rgba(255,215,0,.4); transition: transform .1s;
+}
+.start-btn:active { transform: scale(.95); }
+
+.hud { position: absolute; top: 0; left: 0; right: 0; z-index: 30; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,.3); backdrop-filter: blur(4px); }
+
+.saved-anim {
+  position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+  font-size: 38px; font-weight: 900; color: #fff; z-index: 45;
+  pointer-events: none; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,.4);
+  font-family: 'Fredoka', sans-serif;
+  background: rgba(22,163,74,.9);
+  border: 2px solid rgba(255,255,255,.85);
+  border-radius: 9999px;
+  padding: 8px 18px;
+  min-width: 280px;
+  text-align: center;
+  white-space: nowrap;
+}
+@keyframes floatUp {
+  0%{ opacity:1; transform: translateX(-50%) translateY(0); }
+  100%{ opacity:0; transform: translateX(-50%) translateY(-40px); }
+}
+.float-up { animation: floatUp .8s ease forwards; }
+
+.gk-glove-l, .gk-glove-r {
+  position: absolute; font-size: 24px; z-index: 12; transition: all .4s ease;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.3)); line-height:1;
+}
+  </style>
+</head>
+<body>
+  <div class="game-container" id="game">
+    <div class="grass"></div>
+    <div class="field-lines">
+      <div class="penalty-box"></div>
+      <div class="goal-area"></div>
+      <div class="penalty-spot"></div>
+      <div class="halfway-line"></div>
+      <div class="center-circle"></div>
+    </div>
+    <div class="goalpost" id="goalpost">
+      <div class="net"></div>
+      <div class="post-top"></div>
+      <div class="post-left"></div>
+      <div class="post-right"></div>
+    </div>
+    <div class="answers-stack" id="answersStack"></div>
+    <div class="goalkeeper" id="gk">🧍</div>
+    <div class="gk-glove-l" id="gloveL" style="top:13%;left:calc(50% - 34px);">🧤</div>
+    <div class="gk-glove-r" id="gloveR" style="top:13%;left:calc(50% + 18px);">🧤</div>
+    <div class="kicker" id="kicker">🏃</div>
+    <div class="ball" id="ball">⚽</div>
+    <div class="hud">
+      <div id="scoreDisp" style="color:#FFD700;font-weight:900;font-size:18px;font-family:'Fredoka',sans-serif;">0점</div>
+      <div id="title" style="color:#fff;font-weight:700;font-size:13px;opacity:.8;">축구 단어 퀴즈</div>
+      <div id="livesDisp" style="font-size:18px;">❤️❤️❤️</div>
+    </div>
+    <div id="quizArea" style="display:none;position:absolute;top:32%;left:5%;right:5%;z-index:30;">
+      <div id="timerDisplay" style="text-align:center;font-size:18px;font-weight:900;color:#FFD700;font-family:'Fredoka',sans-serif;margin-bottom:8px;height:24px;"></div>
+      <div id="wordDisp" style="text-align:center;font-size:28px;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);margin-bottom:14px;font-family:'Fredoka','Noto Sans KR',sans-serif;letter-spacing:1px;"></div>
+      <div id="choices" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+    </div>
+    <div class="gauge-track" id="gaugeX" style="display:none;">
+      <div class="gauge-fill" id="gaugeFillX" style="width:0;height:100%;"></div>
+    </div>
+    <div class="gauge-track" id="gaugeY" style="display:none;">
+      <div class="gauge-fill" id="gaugeFillY" style="height:0;width:100%;bottom:0;position:absolute;"></div>
+    </div>
+    <div class="crosshair-h" id="crossH" style="display:none;"></div>
+    <div class="crosshair-v" id="crossV" style="display:none;"></div>
+    <button class="shoot-btn" id="shootBtn" style="display:none;bottom:12%;left:50%;transform:translateX(-50%);">슛!</button>
+    <div class="goal-text" id="goalText">GOAL!!</div>
+    <div class="saved-anim" id="scoreAnim"></div>
+    <div id="flashOverlay" style="position:absolute;inset:0;pointer-events:none;z-index:25;"></div>
+    <div class="msg-overlay" id="msgOverlay">
+      <div class="msg-box">
+        <div id="msgEmoji" style="font-size:48px;margin-bottom:12px;"></div>
+        <div id="msgText" style="font-size:16px;font-weight:700;color:#1a1a2e;line-height:1.5;"></div>
+        <div id="msgScore" style="font-size:14px;color:#666;margin-top:8px;"></div>
+        <button id="msgBtn" style="display:none;margin-top:16px;padding:10px 32px;background:linear-gradient(135deg,#2d8a4e,#4ade80);color:#fff;font-size:16px;font-weight:700;border:none;border-radius:50px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">다시 하기</button>
+      </div>
+    </div>
+    <div class="setup-screen" id="setupScreen">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:56px;margin-bottom:8px;">⚽</div>
+        <h1 id="setupTitle" style="font-family:'Fredoka','Noto Sans KR',sans-serif;font-size:26px;color:#FFD700;text-shadow:0 2px 8px rgba(0,0,0,.3);margin:0 0 6px;">축구 단어 퀴즈</h1>
+        <p style="color:rgba(255,255,255,.8);font-size:13px;">단어와 뜻을 입력하고 게임을 시작하세요!</p>
+      </div>
+      <div style="width:100%;max-width:320px;">
+        <div id="teacherSetup" style="display:flex;flex-direction:column;">
+          <div style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:10px;margin-bottom:10px;color:#fff;font-size:12px;line-height:1.45;">
+            교사용 안내: 단어와 뜻을 입력한 뒤 링크를 복사해 학생에게 전달하세요. 학생은 문제를 풀고 페널티킥/수비 미션을 진행합니다.
+          </div>
+          <label for="wordInput" style="color:#4ade80;font-size:13px;font-weight:700;display:block;margin-bottom:6px;">📝 단어 입력</label>
+          <textarea id="wordInput" placeholder="apple(사과), banana(바나나), cat(고양이), dog(강아지), sun(태양)"></textarea>
+          <p style="color:rgba(255,255,255,.5);font-size:11px;margin-top:6px;">형식: 단어(뜻), 단어(뜻), ... (최소 4개)</p>
+          <label for="timeInput" style="color:#4ade80;font-size:13px;font-weight:700;display:block;margin-top:12px;margin-bottom:6px;">⏱️ 문제 풀이 시간</label>
+          <input type="number" id="timeInput" value="20" min="5" max="120" style="width:100%;border-radius:12px;border:2px solid #4ade80;padding:8px;font-size:14px;background:rgba(255,255,255,.95);color:#1a1a2e;">
+          <p style="color:rgba(255,255,255,.5);font-size:11px;margin-top:6px;">5~120초 사이 설정 가능</p>
+        </div>
+        <div id="gameReady" style="display:none;text-align:center;">
+          <div style="background:rgba(255,255,255,.1);border-radius:12px;padding:16px;margin-bottom:16px;">
+            <p style="color:rgba(255,255,255,.7);font-size:12px;margin-bottom:8px;">✅ 게임이 준비되었어요!</p>
+            <p style="color:#4ade80;font-size:14px;font-weight:700;margin:0;">단어 <span id="wordCount">0</span>개 | 시간 <span id="timeDisplay">20</span>초</p>
+          </div>
+          <button id="copyLinkBtn" style="width:100%;margin-bottom:12px;padding:14px 48px;background:linear-gradient(135deg,#4ade80,#22c55e);color:#1a1a2e;font-size:18px;font-weight:900;border:none;border-radius:50px;cursor:pointer;font-family:'Fredoka',sans-serif;box-shadow:0 4px 15px rgba(74,222,128,.4);transition:transform .1s;">🔗 학생 공유 링크</button>
+          <div id="linkCopied" style="display:none;color:#4ade80;font-size:14px;font-weight:700;margin-bottom:12px;text-align:center;">✅ 링크가 복사되었어요!</div>
+          <button class="start-btn" id="playBtn" style="width:100%;margin-top:0;background:linear-gradient(135deg, #FFD700, #f59e0b);">🎮 게임 시작하기</button>
+          <div id="studentGuide" style="display:none;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:10px;margin-top:10px;color:#fff;font-size:12px;line-height:1.45;text-align:left;">
+            학생용 안내: 문제를 선택해 정답을 맞히면 공격(슛), 오답이면 수비(다이빙)를 진행합니다. 게이지를 두 번 멈춰 X/Y 위치를 정하고 버튼을 눌러 실행하세요.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+let G = {
+  words: [], remaining: [], answeredWords: [], score: 0, lives: 3, phase: 'setup',
+  gaugeX: 0, gaugeY: 0, gaugeDir: 1, gaugeRAF: null, currentWord: null, timeLimit: 20,
+  quizTimer: null, bgAudioOsc: null, bgAudioGain: null, isTeacher: true, sharedWords: null, role: 'kicker'
+};
+let audioCtx = null;
+let audioUnlocked = false;
+
+const $ = id => document.getElementById(id);
+const gameEl=$('game'), setupEl=$('setupScreen'), quizArea=$('quizArea'),
+  wordDisp=$('wordDisp'), choicesEl=$('choices'), scoreDisp=$('scoreDisp'),
+  livesDisp=$('livesDisp'), ballEl=$('ball'), gkEl=$('gk'),
+  gloveLEl=$('gloveL'), gloveREl=$('gloveR'),
+  gaugeXEl=$('gaugeX'), gaugeYEl=$('gaugeY'), gaugeFillX=$('gaugeFillX'), gaugeFillY=$('gaugeFillY'),
+  crossH=$('crossH'), crossV=$('crossV'), shootBtn=$('shootBtn'),
+  goalText=$('goalText'), scoreAnim=$('scoreAnim'), flashOverlay=$('flashOverlay'),
+  msgOverlay=$('msgOverlay'), msgEmoji=$('msgEmoji'), msgText=$('msgText'),
+  msgScore=$('msgScore'), msgBtn=$('msgBtn'), answersStack=$('answersStack'),
+  copyLinkBtn=$('copyLinkBtn'), linkCopied=$('linkCopied'),
+  kickerEl=$('kicker'), teacherSetup=$('teacherSetup'), gameReady=$('gameReady'), playBtn=$('playBtn'),
+  wordCount=$('wordCount'), timeDisplay=$('timeDisplay'), studentGuide=$('studentGuide');
+
+function shuffle(a) { for(let i=a.length-1;i>0;i--){const j=Math.random()*i+1|0;[a[i],a[j]]=[a[j],a[i]];} return a; }
+function parseWords(text) {
+  const pairs = [];
+  const regex = /([^,()\n]+)\(([^)]+)\)/g;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    const w = m[1].trim(), meaning = m[2].trim();
+    if (w && meaning) pairs.push({ word: w, meaning });
+  }
+  return pairs;
+}
+function updateHUD() {
+  scoreDisp.textContent = G.score + '점';
+  livesDisp.textContent = '❤️'.repeat(G.lives) + '🖤'.repeat(3 - G.lives);
+}
+function showScorePopup(txt) {
+  scoreAnim.textContent = txt;
+  scoreAnim.classList.remove('float-up');
+  void scoreAnim.offsetWidth;
+  scoreAnim.classList.add('float-up');
+}
+
+function ensureAudio() {
+  if (!audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function beep(freq, duration, type, volume) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(volume ?? 0.08, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+function playGoalSound() { beep(740, 0.22, 'triangle', 0.11); setTimeout(() => beep(988, 0.24, 'triangle', 0.11), 90); }
+function playSaveSound() { beep(420, 0.2, 'square', 0.08); setTimeout(() => beep(300, 0.22, 'square', 0.08), 80); }
+function playMissSound() { beep(220, 0.35, 'sawtooth', 0.08); }
+
+$('wordInput').addEventListener('input', autoShowReady);
+$('timeInput').addEventListener('input', autoShowReady);
+function autoShowReady() {
+  const text = $('wordInput').value.trim();
+  const words = parseWords(text);
+  const timeVal = parseInt($('timeInput').value) || 20;
+  if (words.length < 4) { gameReady.style.display = 'none'; return; }
+  G.words = words; G.remaining = [...words]; G.answeredWords = []; G.score = 0; G.lives = 3;
+  G.timeLimit = Math.max(5, Math.min(120, timeVal)); G.isTeacher = true;
+  updateHUD(); gameReady.style.display = 'block'; wordCount.textContent = words.length; timeDisplay.textContent = G.timeLimit; linkCopied.style.display = 'none';
+}
+
+playBtn.addEventListener('click', () => { setupEl.style.display = 'none'; answersStack.innerHTML = ''; updateHUD(); showQuiz(); });
+copyLinkBtn.addEventListener('click', async () => {
+  if (G.words.length < 4) return;
+  const jsonStr = JSON.stringify({ words: G.words, timeLimit: G.timeLimit });
+  const encodedData = btoa(encodeURIComponent(jsonStr));
+  const studentLink = `${window.location.origin + window.location.pathname}?mode=student&data=${encodedData}`;
+  try { await navigator.clipboard.writeText(studentLink); linkCopied.style.display = 'block'; setTimeout(() => { linkCopied.style.display = 'none'; }, 3000); }
+  catch { alert('복사 실패. 수동 복사해주세요.'); }
+});
+
+function detectStudentMode() {
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get('mode');
+  const encodedData = params.get('data');
+  if(mode === 'student' && encodedData) {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(atob(encodedData)));
+      if (decoded && decoded.words && decoded.words.length >= 4) {
+        G.words = decoded.words; G.remaining = [...decoded.words]; G.score = 0; G.lives = 3; G.timeLimit = decoded.timeLimit || 20; G.isTeacher = false;
+        setupEl.style.display = 'flex'; teacherSetup.style.display = 'none'; copyLinkBtn.style.display = 'none'; gameReady.style.display = 'block';
+        studentGuide.style.display = 'block';
+        wordCount.textContent = G.words.length; timeDisplay.textContent = G.timeLimit; playBtn.textContent = '🎮 게임 시작하기'; updateHUD();
+      }
+    } catch { alert('데이터를 불러오지 못했습니다.'); }
+  }
+}
+detectStudentMode();
+
+function addAnswerCard(word) {
+  const card = document.createElement('div');
+  card.className = 'answer-card';
+  card.textContent = word;
+  answersStack.appendChild(card);
+}
+
+function showQuiz() {
+  G.phase = 'quiz'; resetField(); quizArea.style.display = 'block';
+  if (G.quizTimer) clearTimeout(G.quizTimer);
+  const idx = Math.random() * G.remaining.length | 0;
+  G.currentWord = G.remaining[idx];
+  wordDisp.textContent = G.currentWord.word;
+  const wrongPool = G.words.filter(w => w.meaning !== G.currentWord.meaning);
+  const wrongs = shuffle([...wrongPool]).slice(0, 3).map(w => w.meaning);
+  const options = shuffle([G.currentWord.meaning, ...wrongs]);
+  choicesEl.innerHTML = '';
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-btn';
+    btn.textContent = opt;
+    btn.addEventListener('click', () => handleAnswer(opt));
+    choicesEl.appendChild(btn);
+  });
+  let timeLeft = G.timeLimit;
+  const updateTimer = () => {
+    timerDisplay.textContent = timeLeft + 's';
+    if (timeLeft <= 0) handleAnswer('__timeout__');
+    else { timeLeft--; G.quizTimer = setTimeout(updateTimer, 1000); }
+  };
+  updateTimer();
+}
+
+function handleAnswer(selected) {
+  if (G.phase !== 'quiz') return;
+  if (G.quizTimer) clearTimeout(G.quizTimer);
+  [...choicesEl.children].forEach(b => { if (b.tagName === 'BUTTON') b.style.pointerEvents = 'none'; });
+  if (selected === G.currentWord.meaning) {
+    playGoalSound();
+    G.score += 100; G.answeredWords.push(G.currentWord.word); updateHUD(); showScorePopup('+100 문제 정답!'); addAnswerCard(G.currentWord.word);
+    G.remaining = G.remaining.filter(w => w.word !== G.currentWord.word); quizArea.style.display = 'none'; G.role = 'kicker'; setTimeout(startPenalty, 500);
+  } else {
+    playMissSound();
+    flashOverlay.style.backgroundColor = 'rgba(255,100,100,.3)'; flashOverlay.style.animation = 'none'; void flashOverlay.offsetWidth; flashOverlay.style.animation = 'redFlash .4s ease';
+    wordDisp.textContent = selected === '__timeout__' ? '⏰ 시간 초과! 골문을 방어하세요!' : '❌ 오답! 골문을 막아 생명을 지키세요!';
+    wordDisp.style.fontSize = '16px'; choicesEl.innerHTML = ''; timerDisplay.textContent = ''; G.role = 'goalkeeper';
+    setTimeout(() => { quizArea.style.display = 'none'; startPenalty(); }, 1500);
+  }
+}
+
+function startPenalty() { setTimeout(() => startGaugeX(), 350); }
+function startGaugeX() {
+  G.phase = 'gauge-x'; G.gaugeX = 0; G.gaugeDir = 1; gaugeXEl.style.display = 'block'; crossV.style.display = 'block';
+  function tick() {
+    G.gaugeX += G.gaugeDir * 1.2;
+    if (G.gaugeX >= 100 || G.gaugeX <= 0) G.gaugeDir *= -1;
+    gaugeFillX.style.width = G.gaugeX + '%';
+    crossV.style.left = G.gaugeX + '%';
+    if (G.phase === 'gauge-x') G.gaugeRAF = requestAnimationFrame(tick);
+  } G.gaugeRAF = requestAnimationFrame(tick);
+}
+function startGaugeY() {
+  G.phase = 'gauge-y'; G.gaugeY = 0; G.gaugeDir = 1; gaugeYEl.style.display = 'block'; crossH.style.display = 'block';
+  function tick() {
+    G.gaugeY += G.gaugeDir * 1.2;
+    if (G.gaugeY >= 100 || G.gaugeY <= 0) G.gaugeDir *= -1;
+    gaugeFillY.style.height = G.gaugeY + '%';
+    crossH.style.top = (-5 + ((100 - G.gaugeY) / 100) * 37) + '%';
+    if (G.phase === 'gauge-y') G.gaugeRAF = requestAnimationFrame(tick);
+  } G.gaugeRAF = requestAnimationFrame(tick);
+}
+function showShootBtn() {
+  G.phase = 'shoot';
+  shootBtn.textContent = G.role === 'kicker' ? '슛!' : '다이빙!';
+  shootBtn.style.background = G.role === 'kicker' ? 'linear-gradient(135deg, #ff6b35, #e63946)' : 'linear-gradient(135deg, #3b82f6, #2563eb)';
+  shootBtn.style.display = 'block';
+}
+
+gameEl.addEventListener('click', (e) => {
+  if (!audioUnlocked) { ensureAudio(); audioUnlocked = true; }
+  if (e.target === shootBtn || e.target.classList.contains('quiz-btn') || e.target.classList.contains('start-btn') || e.target === $('wordInput') || e.target === msgBtn) return;
+  if (G.phase === 'gauge-x') { cancelAnimationFrame(G.gaugeRAF); gaugeXEl.style.display = 'none'; startGaugeY(); }
+  else if (G.phase === 'gauge-y') { cancelAnimationFrame(G.gaugeRAF); gaugeYEl.style.display = 'none'; showShootBtn(); }
+});
+
+shootBtn.addEventListener('click', () => {
+  if (G.phase !== 'shoot') return;
+  G.phase = 'animating';
+  shootBtn.style.display = 'none'; crossH.style.display = 'none'; crossV.style.display = 'none';
+  kickerEl.classList.add('kicking'); setTimeout(() => kickerEl.classList.remove('kicking'), 150);
+
+  const goalLeft = 7.5, goalRight = 92.5, goalTop = 2, goalBottom = 30;
+  let targetX, targetY, gkDiveX, gkDiveY;
+  if (G.role === 'kicker') {
+    targetX = G.gaugeX; targetY = -5 + ((100 - G.gaugeY) / 100) * 37;
+    gkDiveX = goalLeft + Math.random() * (goalRight - goalLeft); gkDiveY = goalTop + Math.random() * (goalBottom - goalTop);
+  } else {
+    gkDiveX = G.gaugeX; gkDiveY = -5 + ((100 - G.gaugeY) / 100) * 37;
+    targetX = Math.random() * 100; targetY = -10 + Math.random() * 45;
+  }
+  ballEl.classList.add('shooting');
+  ballEl.style.left = targetX + '%'; ballEl.style.bottom = (100 - targetY) + '%'; ballEl.style.transform = 'translate(-50%, -50%) scale(0.6)';
+  const isOutsideGoal = targetX < goalLeft || targetX > goalRight || targetY < goalTop || targetY > goalBottom;
+  let isSaved = false;
+  if (!isOutsideGoal) {
+    const distX = Math.abs(targetX - gkDiveX), distY = Math.abs(targetY - gkDiveY);
+    if (G.role === 'goalkeeper') {
+      // 골키퍼 모드: 찍은 위치의 활성 범위를 넓혀 세이브 확률을 높인다.
+      const inDiveRange = distX <= 16 && distY <= 12;
+      isSaved = inDiveRange ? Math.random() < 0.5 : Math.random() < 0.3;
+      if (isSaved) { gkDiveX = targetX; gkDiveY = targetY; }
+    } else if (distX <= 8 && distY <= 6) {
+      isSaved = true; gkDiveX = targetX; gkDiveY = targetY;
+    }
+  }
+  gkEl.style.left = gkDiveX + '%'; gkEl.style.top = gkDiveY + '%';
+  gloveLEl.style.left = (gkDiveX - 5) + '%'; gloveLEl.style.top = gkDiveY + '%';
+  gloveREl.style.left = (gkDiveX + 5) + '%'; gloveREl.style.top = gkDiveY + '%';
+
+  setTimeout(() => {
+    if (G.role === 'kicker') {
+      const isGoal = !isOutsideGoal && !isSaved;
+      if (isOutsideGoal) {
+        playMissSound();
+        ballEl.style.opacity = '0';
+        showScorePopup('노 골! (골대 밖)');
+      } else if (isSaved) {
+        playSaveSound();
+        showScorePopup('상대 선방!');
+      } else if (isGoal) {
+        playGoalSound();
+        G.score += 50;
+        updateHUD();
+        showScorePopup('+50 골!');
+        goalText.classList.add('show');
+        setTimeout(() => goalText.classList.remove('show'), 1500);
+      }
+    } else {
+      if (isOutsideGoal) {
+        playMissSound();
+        showScorePopup('상대 슛 빗나감!');
+      } else if (!isSaved) {
+        playGoalSound();
+        G.lives--;
+        updateHUD();
+        gameEl.classList.add('shake');
+        setTimeout(() => gameEl.classList.remove('shake'), 400);
+        showScorePopup('실점.. 생명 -1');
+      } else {
+        playSaveSound();
+        showScorePopup('생명 유지');
+      }
+    }
+    setTimeout(() => {
+      if (G.lives <= 0) showMessage('😢', '아쉽지만 여기까지! 다음엔 꼭 다 맞출 수 있을 거예요.', G.score + '점', true);
+      else if (G.remaining.length > 0) showQuiz();
+      else showMessage('🎉', '모든 문제를 다 맞췄어요! 정말 대단합니다.', '최종 점수: ' + G.score + '점', true);
+    }, 1200);
+  }, 600);
+});
+
+function resetField() {
+  ballEl.style.opacity = '1'; ballEl.style.transition = ''; ballEl.classList.remove('shooting');
+  ballEl.style.left = '50%'; ballEl.style.bottom = '24%'; ballEl.style.transform = 'translateX(-50%) scale(1)';
+  gkEl.style.left = '50%'; gkEl.style.top = '12%';
+  gloveLEl.style.left = 'calc(50% - 34px)'; gloveLEl.style.top = '13%';
+  gloveREl.style.left = 'calc(50% + 18px)'; gloveREl.style.top = '13%';
+  gaugeXEl.style.display = 'none'; gaugeYEl.style.display = 'none'; shootBtn.style.display = 'none'; crossH.style.display = 'none'; crossV.style.display = 'none';
+  flashOverlay.style.backgroundColor = 'transparent';
+  flashOverlay.style.animation = 'none';
+  goalText.classList.remove('show');
+}
+
+function showMessage(emoji, text, scoreText, showBtn) {
+  msgOverlay.classList.add('show');
+  msgEmoji.textContent = emoji;
+  msgText.textContent = String(text).replace(/\s*\n\s*/g, ' ');
+  msgScore.textContent = String(scoreText).replace(/\s*\n\s*/g, ' ');
+  msgBtn.style.display = showBtn ? 'inline-block' : 'none';
+}
+
+msgBtn.addEventListener('click', () => {
+  msgOverlay.classList.remove('show');
+  answersStack.innerHTML = '';
+  if (G.isTeacher) setupEl.style.display = 'flex';
+  else { G.remaining = [...G.words]; G.answeredWords = []; G.score = 0; G.lives = 3; updateHUD(); showQuiz(); }
+});
+  </script>
+</body>
+</html>
